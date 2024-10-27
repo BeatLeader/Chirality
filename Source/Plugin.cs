@@ -13,9 +13,11 @@ namespace Chirality
     {
         public const string HarmonyId = "com.zephyr.BeatSaber.Chirality";
         internal static readonly HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(HarmonyId);
+        public static string[] prefix_list = new string[] { "Horizontal", "Vertical", "Inverted", "Inverse" };
 
         internal static Plugin Instance { get; private set; }
         internal static IPALogger Log { get; private set; }
+
 
 
         [Init]
@@ -30,7 +32,6 @@ namespace Chirality
 
 
             string[] icon_list = new string[] { "Chirality.Icons.horizontal.png", "Chirality.Icons.vertical.png", "Chirality.Icons.inverted.png", "Chirality.Icons.inverse.png" };
-            string[] prefix_list = new string[] { "Horizontal", "Vertical", "Inverted", "Inverse" };
             string[] hint_list = new string[] { "Invert Left-Right ", "Invert Up-Down ", "True Invert ", "Inverse " };
 
             for (int i = 0; i < 4; i++)
@@ -51,8 +52,11 @@ namespace Chirality
         [OnEnable]
         public void OnEnable()
         {
-            MirrorTransforms.Create_Horizontal_Transforms();
-            MirrorTransforms.Create_Vertical_Transforms();
+            V3.MirrorTransforms.Create_Horizontal_Transforms();
+            V3.MirrorTransforms.Create_Vertical_Transforms();
+
+            V2.MirrorTransforms.Create_Horizontal_Transforms();
+            V2.MirrorTransforms.Create_Vertical_Transforms();
 
             ApplyHarmonyPatches();
 

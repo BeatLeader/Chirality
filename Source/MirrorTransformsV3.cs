@@ -1,83 +1,109 @@
 ﻿using BeatmapSaveDataVersion3;
 using System.Collections.Generic;
 
-namespace Chirality
+namespace Chirality.V3
 {
     class MirrorTransforms
     {
         internal static System.Random rand;
-        internal static List<NoteCutDirection> directions = new List<NoteCutDirection> {NoteCutDirection.Up, NoteCutDirection.Down, NoteCutDirection.Left , NoteCutDirection.Right,
-                                                                                        NoteCutDirection.UpLeft, NoteCutDirection.UpRight, NoteCutDirection.DownLeft, NoteCutDirection.DownRight,
-                                                                                        NoteCutDirection.Any, NoteCutDirection.None};
-        internal static Dictionary<NoteCutDirection, NoteCutDirection> horizontal_cut_transform;
-        internal static Dictionary<NoteCutDirection, NoteCutDirection> vertical_cut_transform;
+        internal static List<BeatmapSaveDataCommon.NoteCutDirection> directions = new List<BeatmapSaveDataCommon.NoteCutDirection> {
+            BeatmapSaveDataCommon.NoteCutDirection.Up, 
+            BeatmapSaveDataCommon.NoteCutDirection.Down, 
+            BeatmapSaveDataCommon.NoteCutDirection.Left, 
+            BeatmapSaveDataCommon.NoteCutDirection.Right,
+            BeatmapSaveDataCommon.NoteCutDirection.UpLeft, 
+            BeatmapSaveDataCommon.NoteCutDirection.UpRight, 
+            BeatmapSaveDataCommon.NoteCutDirection.DownLeft, 
+            BeatmapSaveDataCommon.NoteCutDirection.DownRight,
+            BeatmapSaveDataCommon.NoteCutDirection.Any,
+            BeatmapSaveDataCommon.NoteCutDirection.None
+        };
+        internal static Dictionary<BeatmapSaveDataCommon.NoteCutDirection, BeatmapSaveDataCommon.NoteCutDirection> horizontal_cut_transform;
+        internal static Dictionary<BeatmapSaveDataCommon.NoteCutDirection, BeatmapSaveDataCommon.NoteCutDirection> vertical_cut_transform;
+
+        private static bool SliderTailPositionOverlapsWithNote(SliderData slider, NoteData note) => slider.tailLineIndex == note.lineIndex && slider.tailLineLayer == note.noteLineLayer;
 
 
         #region "Main Transform Functions"
         internal static BeatmapSaveData Mirror_Horizontal(BeatmapSaveData beatmapSaveData, int numberOfLines, bool flip_lines, bool remove_walls, bool is_ME)
         {
             // Bombs:
-            List<BeatmapSaveData.BombNoteData> h_bombNotes = new List<BeatmapSaveData.BombNoteData>();
-            foreach (BeatmapSaveData.BombNoteData bombNoteData in beatmapSaveData.bombNotes)
+            List<BombNoteData> h_bombNotes = new List<BombNoteData>();
+            foreach (BombNoteData bombNoteData in beatmapSaveData.bombNotes)
             {
                 if (flip_lines == false)
                 {
-                    h_bombNotes.Add(new BeatmapSaveData.BombNoteData(bombNoteData.beat, bombNoteData.line, bombNoteData.layer));
+                    h_bombNotes.Add(new BombNoteData(bombNoteData.beat, bombNoteData.line, bombNoteData.layer));
                 }
                 else
                 {
-                    h_bombNotes.Add(new BeatmapSaveData.BombNoteData(bombNoteData.beat, numberOfLines - 1 - bombNoteData.line, bombNoteData.layer));
+                    h_bombNotes.Add(new BombNoteData(bombNoteData.beat, numberOfLines - 1 - bombNoteData.line, bombNoteData.layer));
                 }
             }
 
             // ColorNotes:
-            List<BeatmapSaveData.ColorNoteData> h_colorNotes = new List<BeatmapSaveData.ColorNoteData>();
-            foreach (BeatmapSaveData.ColorNoteData colorNote in beatmapSaveData.colorNotes)
+            List<ColorNoteData> h_colorNotes = new List<ColorNoteData>();
+            foreach (ColorNoteData colorNote in beatmapSaveData.colorNotes)
             {
                 h_colorNotes.Add(Mirror_Horizontal_Note(colorNote, numberOfLines, flip_lines, is_ME));
             }
 
             // Obstacles:
-            List<BeatmapSaveData.ObstacleData> h_obstacleDatas = new List<BeatmapSaveData.ObstacleData>();
+            List<BeatmapSaveDataVersion3.ObstacleData> h_obstacleDatas = new List<BeatmapSaveDataVersion3.ObstacleData>();
             if (remove_walls == false)
             {
-                foreach (BeatmapSaveData.ObstacleData obstacleData in beatmapSaveData.obstacles)
+                foreach (BeatmapSaveDataVersion3.ObstacleData obstacleData in beatmapSaveData.obstacles)
                 {
                     h_obstacleDatas.Add(Mirror_Horizontal_Obstacle(obstacleData, numberOfLines, flip_lines));
                 }
             }
 
             // Sliders:
-            List<BeatmapSaveData.SliderData> h_sliderDatas = new List<BeatmapSaveData.SliderData>();
-            foreach (BeatmapSaveData.SliderData sliderData in beatmapSaveData.sliders)
+            List<BeatmapSaveDataVersion3.SliderData> h_sliderDatas = new List<BeatmapSaveDataVersion3.SliderData>();
+            foreach (BeatmapSaveDataVersion3.SliderData sliderData in beatmapSaveData.sliders)
             {
                 h_sliderDatas.Add(Mirror_Horizontal_Slider(sliderData, numberOfLines, flip_lines, is_ME));
             }
 
             // BurstSliders:
-            List<BeatmapSaveData.BurstSliderData> h_burstSliderDatas = new List<BeatmapSaveData.BurstSliderData>();
-            foreach (BeatmapSaveData.BurstSliderData burstSliderData in beatmapSaveData.burstSliders)
+            List<BurstSliderData> h_burstSliderDatas = new List<BurstSliderData>();
+            foreach (BurstSliderData burstSliderData in beatmapSaveData.burstSliders)
             {
-                h_burstSliderDatas.Add(Mirror_Horizontal_BurstSlider(burstSliderData, numberOfLines, flip_lines, is_ME));
+                BeatmapSaveDataCommon.NoteCutDirection headcutDirection = burstSliderData.headCutDirection;
+                var mirroredNote = Mirror_Horizontal_BurstSlider(burstSliderData, numberOfLines, flip_lines, is_ME);
+                if (mirroredNote.headCutDirection != headcutDirection) {
+                    foreach (var note in h_colorNotes)
+                    {
+                        if (mirroredNote.headLine == note.line && mirroredNote.headLayer == note.layer && mirroredNote.beat == note.beat) {
+                            note.x = mirroredNote.tx;
+                        }
+                    }
+
+                    var tailLineIdex = mirroredNote.tailLine;
+			        mirroredNote.tx = mirroredNote.headLine;
+			        mirroredNote.x = tailLineIdex;
+                }
+
+                h_burstSliderDatas.Add(mirroredNote);
             }
 
 
             return new BeatmapSaveData(beatmapSaveData.bpmEvents, beatmapSaveData.rotationEvents, h_colorNotes, h_bombNotes, h_obstacleDatas, h_sliderDatas, 
                                        h_burstSliderDatas, beatmapSaveData.waypoints, beatmapSaveData.basicBeatmapEvents, beatmapSaveData.colorBoostBeatmapEvents, 
                                        beatmapSaveData.lightColorEventBoxGroups, beatmapSaveData.lightRotationEventBoxGroups, beatmapSaveData.lightTranslationEventBoxGroups, // 1.26.0 added LightTranslationEventBoxGroup 
-                                       beatmapSaveData.basicEventTypesWithKeywords, beatmapSaveData.useNormalEventsAsCompatibleEvents);
+                                       beatmapSaveData.vfxEventBoxGroups, beatmapSaveData._fxEventsCollection, beatmapSaveData.basicEventTypesWithKeywords, beatmapSaveData.useNormalEventsAsCompatibleEvents);
         }
 
 
         internal static BeatmapSaveData Mirror_Vertical(BeatmapSaveData beatmapSaveData, bool flip_rows, bool remove_walls, bool is_ME)
         {
             // Bombs:
-            List<BeatmapSaveData.BombNoteData> v_bombNotes = new List<BeatmapSaveData.BombNoteData>();
-            foreach (BeatmapSaveData.BombNoteData bombNoteData in beatmapSaveData.bombNotes)
+            List<BombNoteData> v_bombNotes = new List<BombNoteData>();
+            foreach (BombNoteData bombNoteData in beatmapSaveData.bombNotes)
             {
                 if (flip_rows)
                 {
-                    v_bombNotes.Add(new BeatmapSaveData.BombNoteData(bombNoteData.beat, bombNoteData.line, 3 - 1 - bombNoteData.layer));
+                    v_bombNotes.Add(new BombNoteData(bombNoteData.beat, bombNoteData.line, 3 - 1 - bombNoteData.layer));
                 }
                 else
                 {
@@ -86,43 +112,57 @@ namespace Chirality
             }
 
             // ColorNotes:
-            List<BeatmapSaveData.ColorNoteData> v_colorNotes = new List<BeatmapSaveData.ColorNoteData>();
-            foreach (BeatmapSaveData.ColorNoteData colorNote in beatmapSaveData.colorNotes)
+            List<ColorNoteData> v_colorNotes = new List<ColorNoteData>();
+            foreach (ColorNoteData colorNote in beatmapSaveData.colorNotes)
             {
                 v_colorNotes.Add(Mirror_Vertical_Note(colorNote, flip_rows, is_ME));
             }
 
             // Obstacles:
-            List<BeatmapSaveData.ObstacleData> v_obstacleDatas = new List<BeatmapSaveData.ObstacleData>();
+            List<BeatmapSaveDataVersion3.ObstacleData> v_obstacleDatas = new List<BeatmapSaveDataVersion3.ObstacleData>();
             if (remove_walls == false)
             {
-                foreach (BeatmapSaveData.ObstacleData obstacleData in beatmapSaveData.obstacles)
+                foreach (BeatmapSaveDataVersion3.ObstacleData obstacleData in beatmapSaveData.obstacles)
                 {
                     v_obstacleDatas.Add(Mirror_Vertical_Obstacle(obstacleData, flip_rows));
                 }
             }
 
             // Sliders:
-            List<BeatmapSaveData.SliderData> v_sliderDatas = new List<BeatmapSaveData.SliderData>();
-            foreach (BeatmapSaveData.SliderData sliderData in beatmapSaveData.sliders)
+            List<BeatmapSaveDataVersion3.SliderData> v_sliderDatas = new List<BeatmapSaveDataVersion3.SliderData>();
+            foreach (BeatmapSaveDataVersion3.SliderData sliderData in beatmapSaveData.sliders)
             {
                 v_sliderDatas.Add(Mirror_Vertical_Slider(sliderData, flip_rows, is_ME));
-                //v_sliderDatas.Add((BeatmapSaveData.SliderData)Mirror_Vertical_Slider_Generic(sliderData, flip_rows, is_ME));
+                //v_sliderDatas.Add((BeatmapSaveDataVersion3.SliderData)Mirror_Vertical_Slider_Generic(sliderData, flip_rows, is_ME));
             }
 
             // BurstSliders:
-            List<BeatmapSaveData.BurstSliderData> v_burstSliderDatas = new List<BeatmapSaveData.BurstSliderData>();
-            foreach (BeatmapSaveData.BurstSliderData burstSliderData in beatmapSaveData.burstSliders)
+            List<BurstSliderData> v_burstSliderDatas = new List<BurstSliderData>();
+            foreach (BurstSliderData burstSliderData in beatmapSaveData.burstSliders)
             {
-                v_burstSliderDatas.Add(Mirror_Vertical_BurstSlider(burstSliderData, flip_rows, is_ME));
-                //v_burstSliderDatas.Add((BeatmapSaveData.BurstSliderData)Mirror_Vertical_Slider_Generic(burstSliderData, flip_rows, is_ME));
+                BeatmapSaveDataCommon.NoteCutDirection headcutDirection = burstSliderData.headCutDirection;
+                var mirroredNote = Mirror_Vertical_BurstSlider(burstSliderData, flip_rows, is_ME);
+                if (mirroredNote.headCutDirection != headcutDirection) {
+                    foreach (var note in v_colorNotes)
+                    {
+                        if (mirroredNote.headLine == note.line && mirroredNote.headLayer == note.layer && mirroredNote.beat == note.beat) {
+                            note.y = mirroredNote.ty;
+                        }
+                    }
+
+                    var tailLineLayer = mirroredNote.tailLayer;
+			        mirroredNote.ty = mirroredNote.headLayer;
+			        mirroredNote.y = tailLineLayer;
+                }
+                v_burstSliderDatas.Add(mirroredNote);
+                //v_burstSliderDatas.Add((BeatmapSaveDataVersion3.BurstSliderData)Mirror_Vertical_Slider_Generic(burstSliderData, flip_rows, is_ME));
             }
 
 
             return new BeatmapSaveData(beatmapSaveData.bpmEvents, beatmapSaveData.rotationEvents, v_colorNotes, v_bombNotes, v_obstacleDatas, v_sliderDatas,
                                        v_burstSliderDatas, beatmapSaveData.waypoints, beatmapSaveData.basicBeatmapEvents, beatmapSaveData.colorBoostBeatmapEvents,
                                        beatmapSaveData.lightColorEventBoxGroups, beatmapSaveData.lightRotationEventBoxGroups, beatmapSaveData.lightTranslationEventBoxGroups,
-                                       beatmapSaveData.basicEventTypesWithKeywords, beatmapSaveData.useNormalEventsAsCompatibleEvents);
+                                       beatmapSaveData.vfxEventBoxGroups, beatmapSaveData._fxEventsCollection, beatmapSaveData.basicEventTypesWithKeywords, beatmapSaveData.useNormalEventsAsCompatibleEvents);
         }
 
 
@@ -141,36 +181,36 @@ namespace Chirality
         {
             Plugin.Log.Debug("Create Horizontal Transforms");
 
-            horizontal_cut_transform = new Dictionary<NoteCutDirection, NoteCutDirection>();
+            horizontal_cut_transform = new Dictionary<BeatmapSaveDataCommon.NoteCutDirection, BeatmapSaveDataCommon.NoteCutDirection>();
 
-            horizontal_cut_transform.Add(NoteCutDirection.Up, NoteCutDirection.Up);
-            horizontal_cut_transform.Add(NoteCutDirection.Down, NoteCutDirection.Down);
-
-            horizontal_cut_transform.Add(NoteCutDirection.UpLeft, NoteCutDirection.UpRight);
-            horizontal_cut_transform.Add(NoteCutDirection.DownLeft, NoteCutDirection.DownRight);
-
-            horizontal_cut_transform.Add(NoteCutDirection.UpRight, NoteCutDirection.UpLeft);
-            horizontal_cut_transform.Add(NoteCutDirection.DownRight, NoteCutDirection.DownLeft);
-
-            horizontal_cut_transform.Add(NoteCutDirection.Left, NoteCutDirection.Right);
-            horizontal_cut_transform.Add(NoteCutDirection.Right, NoteCutDirection.Left);
-            horizontal_cut_transform.Add(NoteCutDirection.Any, NoteCutDirection.Any);
-            horizontal_cut_transform.Add(NoteCutDirection.None, NoteCutDirection.None);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Up, BeatmapSaveDataCommon.NoteCutDirection.Up);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Down, BeatmapSaveDataCommon.NoteCutDirection.Down);
+                                        
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.UpLeft, BeatmapSaveDataCommon.NoteCutDirection.UpRight);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.DownLeft, BeatmapSaveDataCommon.NoteCutDirection.DownRight);
+                                         
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.UpRight, BeatmapSaveDataCommon.NoteCutDirection.UpLeft);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.DownRight, BeatmapSaveDataCommon.NoteCutDirection.DownLeft);
+                                         
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Left, BeatmapSaveDataCommon.NoteCutDirection.Right);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Right, BeatmapSaveDataCommon.NoteCutDirection.Left);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Any, BeatmapSaveDataCommon.NoteCutDirection.Any);
+            horizontal_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.None, BeatmapSaveDataCommon.NoteCutDirection.None);
         }
 
 
-        private static BeatmapSaveData.ColorNoteData Mirror_Horizontal_Note(BeatmapSaveData.ColorNoteData colorNoteData, int numberOfLines, bool flip_lines, bool is_ME)
+        private static ColorNoteData Mirror_Horizontal_Note(ColorNoteData colorNoteData, int numberOfLines, bool flip_lines, bool is_ME)
         {
             int h_line;
 
-            BeatmapSaveData.NoteColorType color;
-            if (colorNoteData.color == BeatmapSaveData.NoteColorType.ColorA)
+            BeatmapSaveDataCommon.NoteColorType color;
+            if (colorNoteData.color == BeatmapSaveDataCommon.NoteColorType.ColorA)
             {
-                color = BeatmapSaveData.NoteColorType.ColorB;
+                color = BeatmapSaveDataCommon.NoteColorType.ColorB;
             }
             else
             {
-                color = BeatmapSaveData.NoteColorType.ColorA;
+                color = BeatmapSaveDataCommon.NoteColorType.ColorA;
             }
 
             // Precision maps will not have indexes flipped (complicated math) but their colors will
@@ -202,39 +242,39 @@ namespace Chirality
                 color = colorNoteData.color;
             }
 
-            NoteCutDirection h_cutDirection; // Yes, this is support for precision placement and ME LOL
+            BeatmapSaveDataCommon.NoteCutDirection h_cutDirection; // Yes, this is support for precision placement and ME LOL
             if (horizontal_cut_transform.TryGetValue(colorNoteData.cutDirection, out h_cutDirection) == false || is_ME)
             {
                 h_cutDirection = Get_Random_Direction();
             }
 
-            return new BeatmapSaveData.ColorNoteData(colorNoteData.beat, h_line, Check_Layer(colorNoteData.layer), color, h_cutDirection, colorNoteData.angleOffset);
+            return new ColorNoteData(colorNoteData.beat, h_line, Check_Layer(colorNoteData.layer), color, h_cutDirection, colorNoteData.angleOffset);
         }
 
 
-        private static BeatmapSaveData.ObstacleData Mirror_Horizontal_Obstacle(BeatmapSaveData.ObstacleData obstacleData, int numberOfLines, bool flip_lines)
+        private static BeatmapSaveDataVersion3.ObstacleData Mirror_Horizontal_Obstacle(BeatmapSaveDataVersion3.ObstacleData obstacleData, int numberOfLines, bool flip_lines)
         {
             if (flip_lines)
             {
-                return new BeatmapSaveData.ObstacleData(obstacleData.beat, numberOfLines - obstacleData.width - obstacleData.line, obstacleData.layer, obstacleData.duration, obstacleData.width, obstacleData.height);
+                return new BeatmapSaveDataVersion3.ObstacleData(obstacleData.beat, numberOfLines - obstacleData.width - obstacleData.line, obstacleData.layer, obstacleData.duration, obstacleData.width, obstacleData.height);
             }
 
             return obstacleData;
         }
 
-        private static BeatmapSaveData.SliderData Mirror_Horizontal_Slider(BeatmapSaveData.SliderData sliderData, int numberOfLines, bool flip_lines, bool is_ME)
+        private static BeatmapSaveDataVersion3.SliderData Mirror_Horizontal_Slider(BeatmapSaveDataVersion3.SliderData sliderData, int numberOfLines, bool flip_lines, bool is_ME)
         {
             int h_headline;
             int h_tailline;
 
-            BeatmapSaveData.NoteColorType color;
-            if (sliderData.colorType == BeatmapSaveData.NoteColorType.ColorA)
+            BeatmapSaveDataCommon.NoteColorType color;
+            if (sliderData.colorType == BeatmapSaveDataCommon.NoteColorType.ColorA)
             {
-                color = BeatmapSaveData.NoteColorType.ColorB;
+                color = BeatmapSaveDataCommon.NoteColorType.ColorB;
             }
             else
             {
-                color = BeatmapSaveData.NoteColorType.ColorA;
+                color = BeatmapSaveDataCommon.NoteColorType.ColorA;
             }
 
 
@@ -269,36 +309,36 @@ namespace Chirality
                 color = sliderData.colorType;
             }
 
-            NoteCutDirection h_headcutDirection; // Yes, this is support for precision placement and ME LOL
+            BeatmapSaveDataCommon.NoteCutDirection h_headcutDirection; // Yes, this is support for precision placement and ME LOL
             if (horizontal_cut_transform.TryGetValue(sliderData.headCutDirection, out h_headcutDirection) == false || is_ME)
             {
                 h_headcutDirection = Get_Random_Direction();
             }
 
-            NoteCutDirection h_tailcutDirection; // Yes, this is support for precision placement and ME LOL
+            BeatmapSaveDataCommon.NoteCutDirection h_tailcutDirection; // Yes, this is support for precision placement and ME LOL
             if (horizontal_cut_transform.TryGetValue(sliderData.tailCutDirection, out h_tailcutDirection) == false || is_ME)
             {
                 h_headcutDirection = Get_Random_Direction();
             }
 
-            return new BeatmapSaveData.SliderData(color, sliderData.beat, h_headline, Check_Layer(sliderData.headLayer), sliderData.headControlPointLengthMultiplier, h_headcutDirection,
-                                                  sliderData.tailBeat, h_tailline, Check_Layer(sliderData.tailLayer), sliderData.tailControlPointLengthMultiplier, h_tailcutDirection, sliderData.sliderMidAnchorMode);
+            return new BeatmapSaveDataVersion3.SliderData(color, sliderData.beat, h_headline, Check_Layer(sliderData.headLayer), sliderData.headControlPointLengthMultiplier, (BeatmapSaveDataCommon.NoteCutDirection)h_headcutDirection,
+                                                  sliderData.tailBeat, h_tailline, Check_Layer(sliderData.tailLayer), sliderData.tailControlPointLengthMultiplier, (BeatmapSaveDataCommon.NoteCutDirection)h_tailcutDirection, sliderData.sliderMidAnchorMode);
         }
 
 
-        private static BeatmapSaveData.BurstSliderData Mirror_Horizontal_BurstSlider(BeatmapSaveData.BurstSliderData burstSliderData, int numberOfLines, bool flip_lines, bool is_ME)
+        private static BurstSliderData Mirror_Horizontal_BurstSlider(BurstSliderData burstSliderData, int numberOfLines, bool flip_lines, bool is_ME)
         {
             int h_headline;
             int h_tailline;
 
-            BeatmapSaveData.NoteColorType color;
-            if (burstSliderData.colorType == BeatmapSaveData.NoteColorType.ColorA)
+            BeatmapSaveDataCommon.NoteColorType color;
+            if (burstSliderData.colorType == BeatmapSaveDataCommon.NoteColorType.ColorA)
             {
-                color = BeatmapSaveData.NoteColorType.ColorB;
+                color = BeatmapSaveDataCommon.NoteColorType.ColorB;
             }
             else
             {
-                color = BeatmapSaveData.NoteColorType.ColorA;
+                color = BeatmapSaveDataCommon.NoteColorType.ColorA;
             }
 
 
@@ -333,13 +373,13 @@ namespace Chirality
                 color = burstSliderData.colorType;
             }
 
-            NoteCutDirection h_headcutDirection; // Yes, this is support for precision placement and ME LOL
+            BeatmapSaveDataCommon.NoteCutDirection h_headcutDirection; // Yes, this is support for precision placement and ME LOL
             if (horizontal_cut_transform.TryGetValue(burstSliderData.headCutDirection, out h_headcutDirection) == false || is_ME)
             {
                 h_headcutDirection = Get_Random_Direction();
             }
 
-            return new BeatmapSaveData.BurstSliderData(color, burstSliderData.beat, h_headline, Check_Layer(burstSliderData.headLayer), h_headcutDirection,
+            return new BurstSliderData(color, burstSliderData.beat, h_headline, Check_Layer(burstSliderData.headLayer), (BeatmapSaveDataCommon.NoteCutDirection)h_headcutDirection,
                                                   burstSliderData.tailBeat, h_tailline, Check_Layer(burstSliderData.tailLayer), burstSliderData.sliceCount, burstSliderData.squishAmount);
         }
         #endregion
@@ -351,25 +391,25 @@ namespace Chirality
         {
             Plugin.Log.Debug("Create Vertical Transforms");
 
-            vertical_cut_transform = new Dictionary<NoteCutDirection, NoteCutDirection>();
+            vertical_cut_transform = new Dictionary<BeatmapSaveDataCommon.NoteCutDirection, BeatmapSaveDataCommon.NoteCutDirection>();
 
-            vertical_cut_transform.Add(NoteCutDirection.Up, NoteCutDirection.Down);
-            vertical_cut_transform.Add(NoteCutDirection.Down, NoteCutDirection.Up);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Up, BeatmapSaveDataCommon.NoteCutDirection.Down);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Down, BeatmapSaveDataCommon.NoteCutDirection.Up);
 
-            vertical_cut_transform.Add(NoteCutDirection.UpLeft, NoteCutDirection.DownLeft);
-            vertical_cut_transform.Add(NoteCutDirection.DownLeft, NoteCutDirection.UpLeft);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.UpLeft, BeatmapSaveDataCommon.NoteCutDirection.DownLeft);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.DownLeft, BeatmapSaveDataCommon.NoteCutDirection.UpLeft);
 
-            vertical_cut_transform.Add(NoteCutDirection.UpRight, NoteCutDirection.DownRight);
-            vertical_cut_transform.Add(NoteCutDirection.DownRight, NoteCutDirection.UpRight);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.UpRight, BeatmapSaveDataCommon.NoteCutDirection.DownRight);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.DownRight, BeatmapSaveDataCommon.NoteCutDirection.UpRight);
 
-            vertical_cut_transform.Add(NoteCutDirection.Left, NoteCutDirection.Left);
-            vertical_cut_transform.Add(NoteCutDirection.Right, NoteCutDirection.Right);
-            vertical_cut_transform.Add(NoteCutDirection.Any, NoteCutDirection.Any);
-            vertical_cut_transform.Add(NoteCutDirection.None, NoteCutDirection.None);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Left, BeatmapSaveDataCommon.NoteCutDirection.Left);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Right, BeatmapSaveDataCommon.NoteCutDirection.Right);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.Any, BeatmapSaveDataCommon.NoteCutDirection.Any);
+            vertical_cut_transform.Add(BeatmapSaveDataCommon.NoteCutDirection.None, BeatmapSaveDataCommon.NoteCutDirection.None);
         }
 
 
-        private static BeatmapSaveData.ColorNoteData Mirror_Vertical_Note(BeatmapSaveData.ColorNoteData colorNoteData, bool flip_rows, bool has_ME)
+        private static ColorNoteData Mirror_Vertical_Note(ColorNoteData colorNoteData, bool flip_rows, bool has_ME)
         {
             int v_layer;
 
@@ -397,27 +437,27 @@ namespace Chirality
                 v_layer = colorNoteData.layer;
             }
 
-            NoteCutDirection v_cutDirection;
+            BeatmapSaveDataCommon.NoteCutDirection v_cutDirection;
             if (vertical_cut_transform.TryGetValue(colorNoteData.cutDirection, out v_cutDirection) == false || has_ME)
             {
                 v_cutDirection = Get_Random_Direction();
             }
 
-            return new BeatmapSaveData.ColorNoteData(colorNoteData.beat, Check_Index(colorNoteData.line), v_layer, colorNoteData.color, v_cutDirection, colorNoteData.angleOffset);
+            return new ColorNoteData(colorNoteData.beat, Check_Index(colorNoteData.line), v_layer, colorNoteData.color, v_cutDirection, colorNoteData.angleOffset);
         }
 
 
-        private static BeatmapSaveData.ObstacleData Mirror_Vertical_Obstacle(BeatmapSaveData.ObstacleData obstacleData, bool flip_rows)
+        private static BeatmapSaveDataVersion3.ObstacleData Mirror_Vertical_Obstacle(BeatmapSaveDataVersion3.ObstacleData obstacleData, bool flip_rows)
         {
             if (flip_rows)
             {
-                return new BeatmapSaveData.ObstacleData(obstacleData.beat, 0, 0, 0, 0, 0);
+                return new BeatmapSaveDataVersion3.ObstacleData(obstacleData.beat, 0, 0, 0, 0, 0);
             }
 
             return obstacleData;
         }
 
-        private static BeatmapSaveData.SliderData Mirror_Vertical_Slider(BeatmapSaveData.SliderData sliderData, bool flip_rows, bool has_ME)
+        private static BeatmapSaveDataVersion3.SliderData Mirror_Vertical_Slider(BeatmapSaveDataVersion3.SliderData sliderData, bool flip_rows, bool has_ME)
         {
             int v_headlayer;
             int v_taillayer;
@@ -450,25 +490,25 @@ namespace Chirality
             }
 
 
-            NoteCutDirection v_headcutDirection;
+            BeatmapSaveDataCommon.NoteCutDirection v_headcutDirection;
             if (vertical_cut_transform.TryGetValue(sliderData.headCutDirection, out v_headcutDirection) == false || has_ME)
             {
                 v_headcutDirection = Get_Random_Direction();
             }
 
-            NoteCutDirection v_tailcutDirection;
+            BeatmapSaveDataCommon.NoteCutDirection v_tailcutDirection;
             if (vertical_cut_transform.TryGetValue(sliderData.tailCutDirection, out v_tailcutDirection) == false || has_ME)
             {
                 v_tailcutDirection = Get_Random_Direction();
             }
 
 
-            return new BeatmapSaveData.SliderData(sliderData.colorType, sliderData.beat, Check_Index(sliderData.headLine), v_headlayer, sliderData.headControlPointLengthMultiplier, v_headcutDirection,
+            return new BeatmapSaveDataVersion3.SliderData(sliderData.colorType, sliderData.beat, Check_Index(sliderData.headLine), v_headlayer, sliderData.headControlPointLengthMultiplier, v_headcutDirection,
                                                               sliderData.tailBeat, Check_Index(sliderData.tailLine), v_taillayer, sliderData.tailControlPointLengthMultiplier, v_tailcutDirection, sliderData.sliderMidAnchorMode);
         }
 
 
-        private static BeatmapSaveData.BurstSliderData Mirror_Vertical_BurstSlider(BeatmapSaveData.BurstSliderData burstSliderData, bool flip_rows, bool has_ME)
+        private static BurstSliderData Mirror_Vertical_BurstSlider(BurstSliderData burstSliderData, bool flip_rows, bool has_ME)
         {
             int v_headlayer;
             int v_taillayer;
@@ -501,19 +541,19 @@ namespace Chirality
             }
 
 
-            NoteCutDirection v_headcutDirection;
+            BeatmapSaveDataCommon.NoteCutDirection v_headcutDirection;
             if (vertical_cut_transform.TryGetValue(burstSliderData.headCutDirection, out v_headcutDirection) == false || has_ME)
             {
                 v_headcutDirection = Get_Random_Direction();
             }
 
-            return new BeatmapSaveData.BurstSliderData(burstSliderData.colorType, burstSliderData.beat, Check_Index(burstSliderData.headLine), v_headlayer, v_headcutDirection,
+            return new BurstSliderData(burstSliderData.colorType, burstSliderData.beat, Check_Index(burstSliderData.headLine), v_headlayer, v_headcutDirection,
                                                               burstSliderData.tailBeat, Check_Index(burstSliderData.tailLine), v_taillayer, burstSliderData.sliceCount, burstSliderData.squishAmount);
         }
 
 
         // Experiment with reusing this function. Not sure its actually better with casting in the main function
-        /*private static BeatmapSaveData.BaseSliderData Mirror_Vertical_Slider_Generic(BeatmapSaveData.BaseSliderData baseSliderData, bool flip_rows, bool has_ME)
+        /*private static BeatmapSaveDataVersion3.BaseSliderData Mirror_Vertical_Slider_Generic(BeatmapSaveDataVersion3.BaseSliderData baseSliderData, bool flip_rows, bool has_ME)
         {
             int v_head_noteLineLayer;
             int v_tail_noteLineLayer;
@@ -552,24 +592,24 @@ namespace Chirality
                 v_headcutDirection = Get_Random_Direction();
             }
 
-            BeatmapSaveData.SliderData sliderData;
+            BeatmapSaveDataVersion3.SliderData sliderData;
             NoteCutDirection v_tailcutDirection;
-            if ((sliderData = baseSliderData as BeatmapSaveData.SliderData) != null)
+            if ((sliderData = baseSliderData as BeatmapSaveDataVersion3.SliderData) != null)
             {
                 if (vertical_cut_transform.TryGetValue(sliderData.tailCutDirection, out v_tailcutDirection) == false || has_ME)
                 {
                     v_tailcutDirection = Get_Random_Direction();
                 }
 
-                return new BeatmapSaveData.SliderData(baseSliderData.colorType, baseSliderData.beat, Check_Index(baseSliderData.headLine), v_head_noteLineLayer, sliderData.headControlPointLengthMultiplier, v_headcutDirection,
+                return new BeatmapSaveDataVersion3.SliderData(baseSliderData.colorType, baseSliderData.beat, Check_Index(baseSliderData.headLine), v_head_noteLineLayer, sliderData.headControlPointLengthMultiplier, v_headcutDirection,
                                                       baseSliderData.tailBeat, Check_Index(baseSliderData.tailLine), v_tail_noteLineLayer, sliderData.tailControlPointLengthMultiplier, v_tailcutDirection, sliderData.sliderMidAnchorMode);
             }
 
             else
             {
-                BeatmapSaveData.BurstSliderData burstSliderData = (BeatmapSaveData.BurstSliderData)baseSliderData;
+                BeatmapSaveDataVersion3.BurstSliderData burstSliderData = (BeatmapSaveDataVersion3.BurstSliderData)baseSliderData;
 
-                return new BeatmapSaveData.BurstSliderData(baseSliderData.colorType, baseSliderData.beat, Check_Index(baseSliderData.headLine), v_head_noteLineLayer, v_headcutDirection,
+                return new BeatmapSaveDataVersion3.BurstSliderData(baseSliderData.colorType, baseSliderData.beat, Check_Index(baseSliderData.headLine), v_head_noteLineLayer, v_headcutDirection,
                                                            baseSliderData.tailBeat, Check_Index(baseSliderData.tailLine), v_tail_noteLineLayer, burstSliderData.sliceCount, burstSliderData.squishAmount);
             }
         }*/
@@ -578,7 +618,7 @@ namespace Chirality
 
 
         #region "Utility Functions"
-        internal static NoteCutDirection Get_Random_Direction()
+        internal static BeatmapSaveDataCommon.NoteCutDirection Get_Random_Direction()
         {
             int index = rand.Next(directions.Count);
 

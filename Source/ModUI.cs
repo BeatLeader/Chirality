@@ -1,5 +1,5 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
-using BeatSaberMarkupLanguage.Components;
+using BeatSaberMarkupLanguage.Util;
 using Chirality.Configuration;
 
 namespace Chirality
