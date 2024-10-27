@@ -1,4 +1,5 @@
-﻿using IPA;
+﻿using BeatSaberMarkupLanguage.Util;
+using IPA;
 using IPA.Config;
 using IPA.Config.Stores;
 using System;
@@ -31,6 +32,29 @@ namespace Chirality
             Plugin.Log?.Debug("Config loaded");
 
 
+            
+        }
+
+        
+        [OnEnable]
+        public void OnEnable()
+        {
+            V3.MirrorTransforms.Create_Horizontal_Transforms();
+            V3.MirrorTransforms.Create_Vertical_Transforms();
+
+            V2.MirrorTransforms.Create_Horizontal_Transforms();
+            V2.MirrorTransforms.Create_Vertical_Transforms();
+
+            ApplyHarmonyPatches();
+
+            MainMenuAwaiter.MainMenuInitializing += MainMenuInit;
+            //if (PluginConfig.Instance.enabled)
+            //{
+                //BeatSaberMarkupLanguage.GameplaySetup.GameplaySetup.instance.AddTab("Chirality", "Chirality.ModUI.bsml", ModUI.instance, BeatSaberMarkupLanguage.GameplaySetup.MenuType.Solo);
+            //}
+        }
+
+        public static void MainMenuInit() {
             string[] icon_list = new string[] { "Chirality.Icons.horizontal.png", "Chirality.Icons.vertical.png", "Chirality.Icons.inverted.png", "Chirality.Icons.inverse.png" };
             string[] hint_list = new string[] { "Invert Left-Right ", "Invert Up-Down ", "True Invert ", "Inverse " };
 
@@ -46,27 +70,8 @@ namespace Chirality
                     SongCore.Collections.RegisterCustomCharacteristic(icon, name, hint, name, name);
                 }
             }
+            //BeatSaberMarkupLanguage.Settings.BSMLSettings.Instance.AddSettingsMenu("Chirality", "Chirality.ModUI.bsml", ModUI.instance);
         }
-
-        
-        [OnEnable]
-        public void OnEnable()
-        {
-            V3.MirrorTransforms.Create_Horizontal_Transforms();
-            V3.MirrorTransforms.Create_Vertical_Transforms();
-
-            V2.MirrorTransforms.Create_Horizontal_Transforms();
-            V2.MirrorTransforms.Create_Vertical_Transforms();
-
-            ApplyHarmonyPatches();
-
-            BeatSaberMarkupLanguage.Settings.BSMLSettings.instance.AddSettingsMenu("Chirality", "Chirality.ModUI.bsml", ModUI.instance);
-            //if (PluginConfig.Instance.enabled)
-            //{
-                //BeatSaberMarkupLanguage.GameplaySetup.GameplaySetup.instance.AddTab("Chirality", "Chirality.ModUI.bsml", ModUI.instance, BeatSaberMarkupLanguage.GameplaySetup.MenuType.Solo);
-            //}
-        }
-
 
         [OnDisable]
         public void OnDisable()

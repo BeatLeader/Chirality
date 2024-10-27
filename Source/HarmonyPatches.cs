@@ -18,8 +18,6 @@ namespace Chirality
         [HarmonyPatch(nameof(StandardLevelDetailView.SetContent), typeof(BeatmapLevel), typeof(BeatmapDifficultyMask), typeof(HashSet<BeatmapCharacteristicSO>), typeof(BeatmapDifficulty), typeof(BeatmapCharacteristicSO), typeof(PlayerData))]
         static void Prefix(BeatmapLevel level)
         {
-            //Plugin.Log.Debug("SetContent");
-
             if (PluginConfig.Instance.enabled == false || BS_Utils.Plugin.LevelData.Mode == BS_Utils.Gameplay.Mode.Multiplayer || BS_Utils.Plugin.LevelData.Mode == BS_Utils.Gameplay.Mode.Mission)
             {
                 // This prevents prevents new diffs from being generated in mp but will not remove the ones generated recently while playing in solo then going into mp
@@ -51,34 +49,29 @@ namespace Chirality
                 return;
             }
 
-            var newKeys = new Dictionary<(BeatmapCharacteristicSO characteristic, BeatmapDifficulty difficulty), BeatmapBasicData>();
-            foreach (var key in level.beatmapBasicData.Keys) {
-                newKeys[key] = level.beatmapBasicData[key];
-            }
-
             foreach (var chara in level.GetCharacteristics()) {
                 foreach (var prefix in Plugin.prefix_list)
                 {
                     var newChara = SongCore.Collections.customCharacteristics.FirstOrDefault(x => x.serializedName.StartsWith(prefix));
 	                if (newChara == null) continue;
 
+                    Plugin.Log.Error("SetContent 5");
+
 	                foreach (var diff in level.GetDifficulties(chara)) {
                         var newKey = (newChara, diff);
-                        if (newKeys.ContainsKey(newKey)) continue;
+                        if (level.beatmapBasicData.ContainsKey(newKey)) continue;
 
-                        var data = level.GetDifficultyBeatmapData(chara, diff);
-                        if (data == null) continue;
-		                newKeys.Add(newKey, data);
+                        level.AddBeatmapBasicData(newChara, diff, level.GetDifficultyBeatmapData(chara, diff));
 	                }
                 }
             }
 
-            level.GetType().GetField("beatmapBasicData", BindingFlags.Instance | BindingFlags.Public)
-	            ?.SetValue(level, newKeys);
+            //level.GetType().GetField("beatmapBasicData", BindingFlags.Instance | BindingFlags.Public)
+	           // ?.SetValue(level, newKeys);
             level.GetType().GetField("_beatmapKeysCache", BindingFlags.Instance | BindingFlags.NonPublic)
-	            ?.SetValue(level, null);
+                ?.SetValue(level, null);
             level.GetType().GetField("_characteristicsCache", BindingFlags.Instance | BindingFlags.NonPublic)
-	            ?.SetValue(level, null);
+                ?.SetValue(level, null);
         }
     }
 
@@ -141,8 +134,6 @@ namespace Chirality
 
             var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
             if (prefix == null) return;
-
-            Plugin.Log.Error($"BeatmapDataLoaderPatch {modeName.Replace(prefix, "")}");
 
             beatmapKey = new BeatmapKey(beatmapKey.levelId, MakeDefault(mode, prefix), beatmapKey.difficulty);
         }
@@ -275,32 +266,25 @@ namespace Chirality
     [HarmonyPatch(typeof(FileSystemBeatmapLevelData))]
     class PatchBeatmapFile
     {
-        [HarmonyPrefix]
-        [HarmonyPatch("GetDifficultyBeatmap")]
-        static void ResetCharacteristic(ref BeatmapKey beatmapKey, FileSystemBeatmapLevelData __instance)
-        {
-            var mode = beatmapKey.beatmapCharacteristic;
-            var modeName = mode.serializedName;
-            Plugin.Log.Error($"GetDifficultyBeatmap {modeName}");
+       [HarmonyPrefix]
+       [HarmonyPatch("GetDifficultyBeatmap")]
+       static void ResetCharacteristic(ref BeatmapKey beatmapKey, FileSystemBeatmapLevelData __instance)
+       {
+           var mode = beatmapKey.beatmapCharacteristic;
+           var modeName = mode.serializedName;
+           Plugin.Log.Error($"GetDifficultyBeatmap {modeName}");
 
-            var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
-            if (prefix == null) return;
+           var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
+           if (prefix == null) return;
 
-            Type expectedType = typeof(FileSystemBeatmapLevelData);
-            Type type = __instance.GetType() == expectedType ? expectedType : __instance.GetType().BaseType;
-            if (type != expectedType) Plugin.Log.Error($"Unrecognized filesystem data type {__instance.GetType()} {__instance.GetType().Assembly.FullName}");
+           var difficultyBeatmaps = __instance._difficultyBeatmaps;
 
-            var difficultyBeatmaps =
-                (Dictionary<(BeatmapCharacteristicSO, BeatmapDifficulty), FileDifficultyBeatmap>)type
-                    .GetField("_difficultyBeatmaps", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .GetValue(__instance);
+           string normalCharName = beatmapKey.beatmapCharacteristic.serializedName.Replace(prefix, "");
+           var diff = beatmapKey.difficulty;
+           var entryForNormalCharacteristic = difficultyBeatmaps.FirstOrDefault(x => x.Key.Item1.serializedName == normalCharName && x.Key.Item2 == diff);
 
-            string normalCharName = beatmapKey.beatmapCharacteristic.serializedName.Replace(prefix, "");
-            var diff = beatmapKey.difficulty;
-            var entryForNormalCharacteristic = difficultyBeatmaps.FirstOrDefault(x => x.Key.Item1.serializedName == normalCharName && x.Key.Item2 == diff);
-
-            beatmapKey = new BeatmapKey(beatmapKey.levelId, entryForNormalCharacteristic.Key.Item1, beatmapKey.difficulty);
-        }
+           beatmapKey = new BeatmapKey(beatmapKey.levelId, entryForNormalCharacteristic.Key.Item1, beatmapKey.difficulty);
+       }
     }
 
     [HarmonyPatch(typeof(PlayerData))]
