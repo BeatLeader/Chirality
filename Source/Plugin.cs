@@ -56,7 +56,7 @@ namespace Chirality
 
         public static void MainMenuInit() {
             string[] icon_list = new string[] { "Chirality.Icons.horizontal.png", "Chirality.Icons.vertical.png", "Chirality.Icons.inverted.png", "Chirality.Icons.inverse.png" };
-            string[] hint_list = new string[] { "Invert Left-Right ", "Invert Up-Down ", "True Invert ", "Inverse " };
+            string[] hint_list = new string[] { "Invert Left-Right ", "Invert Up-Down ", "<color=#AA4411><size=120%>INVERTED DIMENSION EVENT</size></color>\r\nTrue Invert ", "Inverse " };
 
             for (int i = 0; i < 4; i++)
             {
