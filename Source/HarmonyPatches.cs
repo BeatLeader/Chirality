@@ -137,12 +137,9 @@ namespace Chirality
 	    static void ResetCharacteristic(ref BeatmapKey beatmapKey, BeatmapDataLoader __instance) {
             var mode = beatmapKey.beatmapCharacteristic;
             var modeName = mode.serializedName;
-            Plugin.Log.Error($"BeatmapDataLoaderPatch {mode.compoundIdPartName}");
 
             var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
             if (prefix == null) return;
-
-            Plugin.Log.Error($"BeatmapDataLoaderPatch {modeName.Replace(prefix, "")}");
 
             beatmapKey = new BeatmapKey(beatmapKey.levelId, MakeDefault(mode, prefix), beatmapKey.difficulty);
         }
@@ -160,7 +157,6 @@ namespace Chirality
 	    static void LoadBeatmapDataAsyncPrefix(ref BeatmapKey beatmapKey, BeatmapDataLoader __instance, ref bool enableBeatmapDataCaching) {
             var mode = beatmapKey.beatmapCharacteristic;
             var modeName = mode.serializedName;
-            Plugin.Log.Error($"LoadBeatmapDataAsync {modeName}");
 
             var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
             if (prefix == null) return;
@@ -177,8 +173,6 @@ namespace Chirality
         [HarmonyPatch("GetBeatmapDataFromSaveData")]
         static void ResetCharacteristic(ref BeatmapSaveDataVersion3.BeatmapSaveData beatmapSaveData)
         { 
-
-            Plugin.Log.Error($"GetBeatmapDataFromSaveData {BeatmapDataLoaderPatch2.invertMode}");
             if (BeatmapDataLoaderPatch2.invertMode != null) {
 
                 bool is_ME = false; // Chaos generator
@@ -228,8 +222,6 @@ namespace Chirality
         [HarmonyPatch("GetBeatmapDataFromSaveData")]
         static void ResetCharacteristic(ref BeatmapSaveDataVersion2_6_0AndEarlier.BeatmapSaveData beatmapSaveData)
         { 
-
-            Plugin.Log.Error($"GetBeatmapDataFromSaveData {BeatmapDataLoaderPatch2.invertMode}");
             if (BeatmapDataLoaderPatch2.invertMode != null) {
 
                 bool is_ME = false; // Chaos generator
@@ -281,7 +273,6 @@ namespace Chirality
         {
             var mode = beatmapKey.beatmapCharacteristic;
             var modeName = mode.serializedName;
-            Plugin.Log.Error($"GetDifficultyBeatmap {modeName}");
 
             var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
             if (prefix == null) return;
@@ -311,7 +302,6 @@ namespace Chirality
         static void UseDefaultCharacteristic(ref BeatmapKey beatmapKey)
         {
             var modeName = beatmapKey.beatmapCharacteristic.serializedName;
-            Plugin.Log.Error($"PatchPlayerLevelStatsData1 {modeName}");
             var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
             if (prefix != null)
             {
@@ -326,7 +316,6 @@ namespace Chirality
         [HarmonyPatch(nameof(PlayerData.GetOrCreatePlayerLevelStatsData), new Type[] { typeof(string), typeof(BeatmapDifficulty), typeof(BeatmapCharacteristicSO) })]
         static void UseDefaultCharacteristic(ref BeatmapCharacteristicSO beatmapCharacteristic)
         {
-            Plugin.Log.Error("PatchPlayerLevelStatsData2");
             var modeName = beatmapCharacteristic.serializedName;
             var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
             if (prefix != null)
