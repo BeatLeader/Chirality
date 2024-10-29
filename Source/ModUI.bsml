@@ -1,24 +1,12 @@
 ﻿<bg xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://raw.githubusercontent.com/monkeymanboy/BSML-Docs/gh-pages/BSMLSchema.xsd'>
 	<vertical vertical-fit='PreferredSize' preferred-height='55'>
 		
-		<vertical vertical-fit='PreferredSize' preferred-height='10'>
-			<horizontal>
-				<text text='It is recommended to restart game before switching to Multiplayer' font-color='#ffff00ff' font-size='3' align='Center'></text>
-			</horizontal>
-			<horizontal>
-				<text text='Mapping Extensions and Noodle maps may be a surprise 💗' font-color='#ffff00ff' font-size='3' align='Center' hover-hint='Yes it is intentional'></text>
-			</horizontal>
-			<horizontal>
-				<text text='Please play responsibly.' font-color='#ffff00ff' font-size='3' align='Center'></text>
-			</horizontal>
-		</vertical>
 		
 			<horizontal>
 				<text text='You must press OK to apply changes!' font-color='#ffff00ff' font-size='3' align='Center'></text>
 			</horizontal>
 
 		<checkbox-setting value ='enabled' on-change='set_enabled' text='Enabled'></checkbox-setting>
-		<increment-setting value='increment_value' apply-on-change='false' bind-value='true' text='Game Mode' integer-only='true' min='0' max='3' formatter='increment_formatter' hover-hint='Select game mode to play on'/>
 
 		<horizontal>
 			<text text='Special request from Aroc. Thanks!' font-color='#ffff00ff' font-size='3' align='Center'></text>

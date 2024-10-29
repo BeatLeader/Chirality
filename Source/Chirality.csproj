@@ -15,6 +15,9 @@
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="ModUI.bsml" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>$(BeatSaberDir)\Libs\0Harmony.dll</HintPath>
       <Private>False</Private>
@@ -112,6 +115,7 @@
     <EmbeddedResource Include="Icons\vertical.png" />
     <EmbeddedResource Include="Icons\inverted.png" />
     <EmbeddedResource Include="manifest.json" />
+    <EmbeddedResource Include="ModUI.bsml" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Chirality.csproj.user" Condition="Exists('Chirality.csproj.user')" />

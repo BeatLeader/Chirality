@@ -14,6 +14,35 @@ namespace Chirality
     [HarmonyPatch (typeof(StandardLevelDetailView))]
     internal class StandardLevelDetailViewPatch
     {
+        public static void AddChar(BeatmapLevel level) {
+            var newKeys = new Dictionary<(BeatmapCharacteristicSO characteristic, BeatmapDifficulty difficulty), BeatmapBasicData>();
+            foreach (var key in level.beatmapBasicData.Keys) {
+                newKeys[key] = level.beatmapBasicData[key];
+            }
+
+            foreach (var chara in level.GetCharacteristics()) {
+                foreach (var prefix in Plugin.prefix_list)
+                {
+                    var newChara = SongCore.Collections.customCharacteristics.FirstOrDefault(x => x.serializedName.StartsWith(prefix));
+	                if (newChara == null) continue;
+
+	                foreach (var diff in level.GetDifficulties(chara)) {
+                        var newKey = (newChara, diff);
+                        if (newKeys.ContainsKey(newKey)) continue;
+
+                        var data = level.GetDifficultyBeatmapData(chara, diff);
+                        if (data == null) continue;
+		                newKeys.Add(newKey, data);
+	                }
+                }
+            }
+
+            level.GetType().GetField("beatmapBasicData", BindingFlags.Instance | BindingFlags.Public)
+	            ?.SetValue(level, newKeys);
+            level._beatmapKeysCache = null;
+            level._characteristicsCache = null;
+        }
+
         [HarmonyPrefix]
         [HarmonyPatch(nameof(StandardLevelDetailView.SetContent), typeof(BeatmapLevel), typeof(BeatmapDifficultyMask), typeof(HashSet<BeatmapCharacteristicSO>), typeof(BeatmapDifficulty), typeof(BeatmapCharacteristicSO), typeof(PlayerData))]
         static void Prefix(BeatmapLevel level)
@@ -51,34 +80,7 @@ namespace Chirality
                 return;
             }
 
-            var newKeys = new Dictionary<(BeatmapCharacteristicSO characteristic, BeatmapDifficulty difficulty), BeatmapBasicData>();
-            foreach (var key in level.beatmapBasicData.Keys) {
-                newKeys[key] = level.beatmapBasicData[key];
-            }
-
-            foreach (var chara in level.GetCharacteristics()) {
-                foreach (var prefix in Plugin.prefix_list)
-                {
-                    var newChara = SongCore.Collections.customCharacteristics.FirstOrDefault(x => x.serializedName.StartsWith(prefix));
-	                if (newChara == null) continue;
-
-	                foreach (var diff in level.GetDifficulties(chara)) {
-                        var newKey = (newChara, diff);
-                        if (newKeys.ContainsKey(newKey)) continue;
-
-                        var data = level.GetDifficultyBeatmapData(chara, diff);
-                        if (data == null) continue;
-		                newKeys.Add(newKey, data);
-	                }
-                }
-            }
-
-            level.GetType().GetField("beatmapBasicData", BindingFlags.Instance | BindingFlags.Public)
-	            ?.SetValue(level, newKeys);
-            level.GetType().GetField("_beatmapKeysCache", BindingFlags.Instance | BindingFlags.NonPublic)
-	            ?.SetValue(level, null);
-            level.GetType().GetField("_characteristicsCache", BindingFlags.Instance | BindingFlags.NonPublic)
-	            ?.SetValue(level, null);
+            AddChar(level);
         }
     }
 
@@ -264,6 +266,44 @@ namespace Chirality
         }
     }
 
+    [HarmonyPatch(typeof(BeatmapLevel))]
+    class PatchBeatmapLevelEnvironment
+    {
+        [HarmonyPrefix]
+        [HarmonyPatch("GetEnvironmentName")]
+        static void ResetCharacteristic(ref BeatmapCharacteristicSO characteristic, BeatmapDifficulty difficulty, BeatmapLevel __instance)
+        {
+            var modeName = characteristic.serializedName ?? "";
+            var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
+            if (prefix != null && 
+                __instance.beatmapBasicData != null && 
+                __instance.beatmapBasicData.Keys != null && 
+                !__instance.beatmapBasicData.Keys.Any(k => modeName == k.characteristic?.serializedName))
+            {
+                StandardLevelDetailViewPatch.AddChar(__instance);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(BeatmapLevel))]
+    class PatchBeatmapLevelColorScheme
+    {
+        [HarmonyPrefix]
+        [HarmonyPatch("GetColorScheme")]
+        static void ResetCharacteristic(ref BeatmapCharacteristicSO characteristic, BeatmapDifficulty difficulty, BeatmapLevel __instance)
+        {
+            var modeName = characteristic.serializedName ?? "";
+            var prefix = Plugin.prefix_list.FirstOrDefault(p => modeName.StartsWith(p));
+            if (prefix != null && 
+                __instance.beatmapBasicData != null && 
+                __instance.beatmapBasicData.Keys != null && 
+                !__instance.beatmapBasicData.Keys.Any(k => modeName == k.characteristic?.serializedName))
+            {
+                StandardLevelDetailViewPatch.AddChar(__instance);
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(FileSystemBeatmapLevelData))]
     class PatchBeatmapFile
     {
@@ -311,7 +351,8 @@ namespace Chirality
     }
 
     [HarmonyPatch(typeof(PlayerData))]
-    class PatchPlayerData2 {
+    class PatchPlayerData2
+    {
         [HarmonyPrefix]
         [HarmonyPatch(nameof(PlayerData.GetOrCreatePlayerLevelStatsData), new Type[] { typeof(string), typeof(BeatmapDifficulty), typeof(BeatmapCharacteristicSO) })]
         static void UseDefaultCharacteristic(ref BeatmapCharacteristicSO beatmapCharacteristic)
